@@ -1,0 +1,14 @@
+node_modules/
+dist/
+.DS_Store
+.env
+.env.local
+*.log
+logs/
+output/
+data/
+*.db
+*.sqlite
+*.sqlite3
+*.rar
+public/config.js
