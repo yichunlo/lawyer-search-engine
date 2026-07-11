@@ -181,6 +181,17 @@ textarea:focus {
   min-width: 0;
 }
 
+.input-meta {
+  margin-top: 8px;
+  color: #69756e;
+  font-size: 0.82rem;
+}
+
+.input-meta.over-limit {
+  color: #9f3b26;
+  font-weight: 700;
+}
+
 .example {
   max-width: 100%;
   padding: 8px 10px;

@@ -5,6 +5,8 @@ const examples = [
   "我家的貓不小心弄壞別人家的燈飾，對方說要提告",
 ];
 
+const MAX_USER_INPUT_CHARS = 2000;
+
 let conversation = [];
 let isSending = false;
 
@@ -33,9 +35,12 @@ app.innerHTML = `
       </div>
       <div class="composer">
         <label for="caseText" class="sr-only">Message</label>
-        <textarea id="caseText" rows="3" placeholder="Message Lawyer Search Engine"></textarea>
+        <textarea id="caseText" rows="3" maxlength="${MAX_USER_INPUT_CHARS}" placeholder="Message Lawyer Search Engine"></textarea>
         <div class="composer-bottom">
-          <div class="examples" id="examples"></div>
+          <div>
+            <div class="examples" id="examples"></div>
+            <div class="input-meta" id="inputLimit">0 / ${MAX_USER_INPUT_CHARS}</div>
+          </div>
           <div class="actions">
             <button id="clearBtn" type="button" class="secondary">New chat</button>
             <button id="classifyBtn" type="button">Send</button>
@@ -52,6 +57,7 @@ const clearBtn = document.querySelector("#clearBtn");
 const chatThread = document.querySelector("#results");
 const matchState = document.querySelector("#matchState");
 const examplesEl = document.querySelector("#examples");
+const inputLimit = document.querySelector("#inputLimit");
 
 function apiBaseUrl() {
   const configured = String(window.LAWYER_SEARCH_API_BASE_URL || "").trim();
@@ -71,6 +77,32 @@ function userFactsText() {
     .filter((message) => message.role === "user")
     .map((message, index) => `${index === 0 ? "使用者原始描述" : "使用者補充回答"}：${message.content}`)
     .join("\n");
+}
+
+function countChars(value) {
+  return Array.from(String(value || "")).length;
+}
+
+function userInputChars(extra = "") {
+  const existing = conversation
+    .filter((message) => message.role === "user")
+    .reduce((sum, message) => sum + countChars(message.content), 0);
+  return existing + countChars(extra);
+}
+
+function inputTooLongPayload() {
+  return {
+    warning: `請把這次對話的案件描述控制在 ${MAX_USER_INPUT_CHARS} 字以內。`,
+    answer_zh: "為了避免濫用與保護後端資源，這個測試版限制單次對話的使用者輸入總長度。",
+    suggestions: [],
+  };
+}
+
+function updateInputLimit() {
+  const used = userInputChars(caseText?.value || "");
+  inputLimit.textContent = `${Math.min(used, MAX_USER_INPUT_CHARS)} / ${MAX_USER_INPUT_CHARS}`;
+  inputLimit.classList.toggle("over-limit", used > MAX_USER_INPUT_CHARS);
+  sendBtn.disabled = isSending || used > MAX_USER_INPUT_CHARS;
 }
 
 function requestConversationSnapshot() {
@@ -268,9 +300,17 @@ function escapeHtml(value) {
 async function sendMessage(rawText = caseText.value) {
   const content = String(rawText || "").trim();
   if (!content || isSending) return;
+  if (userInputChars(content) > MAX_USER_INPUT_CHARS) {
+    conversation.push({ role: "assistant", payload: inputTooLongPayload() });
+    matchState.textContent = "Input too long";
+    renderConversation();
+    updateInputLimit();
+    return;
+  }
 
   conversation.push({ role: "user", content });
   caseText.value = "";
+  updateInputLimit();
   renderConversation();
   await classifyConversation();
 }
@@ -317,7 +357,7 @@ async function classifyConversation() {
     matchState.textContent = "Backend unavailable";
   } finally {
     isSending = false;
-    sendBtn.disabled = false;
+    updateInputLimit();
     renderConversation();
     caseText.focus();
   }
@@ -351,13 +391,16 @@ function clearConversation() {
   conversation = [];
   matchState.textContent = "Ready";
   caseText.value = "";
+  updateInputLimit();
   renderConversation();
   caseText.focus();
 }
 
 renderExamples();
 renderConversation();
+updateInputLimit();
 sendBtn.addEventListener("click", () => sendMessage());
+caseText.addEventListener("input", updateInputLimit);
 caseText.addEventListener("keydown", (event) => {
   if ((event.metaKey || event.ctrlKey) && event.key === "Enter") {
     event.preventDefault();
