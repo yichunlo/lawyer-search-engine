@@ -449,6 +449,13 @@ h2 {
   white-space: nowrap;
 }
 
+.firm-reason {
+  margin-top: 8px;
+  color: #58645d;
+  line-height: 1.5;
+  font-size: 0.9rem;
+}
+
 .firm-lawyers {
   display: grid;
   gap: 10px;

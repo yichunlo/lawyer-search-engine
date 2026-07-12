@@ -239,6 +239,7 @@ function renderRecommendedFirm(group) {
         <span class="firm-rec-name">${escapeHtml(formatFirmMatch(group.firm))}</span>
         <span>${escapeHtml(group.lawyers.length)} lawyer${group.lawyers.length === 1 ? "" : "s"}</span>
       </div>
+      <p class="firm-reason">${escapeHtml(formatFirmReason(group))}</p>
       <div class="firm-lawyers">
         ${group.lawyers.map(renderFirmLawyer).join("")}
       </div>
@@ -254,9 +255,9 @@ function renderFirmLawyer(lawyer) {
         <span>${escapeHtml(lawyer.source_name || "")}</span>
       </div>
       ${lawyer.firm_mapping_ambiguous ? `<div class="firm-tags"><span>同名需確認</span></div>` : ""}
-      <p>${escapeHtml(lawyer.reason_zh || "")}</p>
+      <p>${escapeHtml(lawyerFitReason(lawyer))}</p>
       <p class="case-count">
-        同類案件 ${escapeHtml(lawyer.observed_case_count ?? 0)} 件；可解析結果 ${escapeHtml(lawyer.known_outcome_count ?? 0)} 件
+        相關公開判決出現 ${escapeHtml(lawyer.observed_case_count ?? 0)} 件
       </p>
       <div class="mini-tags">
         ${(lawyer.matched_jtitles || [])
@@ -274,10 +275,34 @@ function formatFirmMatch(firm) {
   return `${firm.firm_name || ""}${rank}`;
 }
 
+function formatFirmReason(group) {
+  const names = group.lawyers
+    .map((lawyer) => lawyer.name)
+    .filter(Boolean)
+    .slice(0, 3)
+    .join("、");
+  if (group.firm.unmapped) {
+    return names
+      ? `列出原因：${names} 曾出現在相關公開判決中，但目前尚未對應到事務所。`
+      : "列出原因：相關律師曾出現在公開判決中，但目前尚未對應到事務所。";
+  }
+  return names
+    ? `推薦原因：此事務所對應的 ${names} 曾出現在相關案由或相似案件公開判決中。`
+    : "推薦原因：此事務所對應律師曾出現在相關案由或相似案件公開判決中。";
+}
+
 function formatJtitleStat(item) {
-  const rate =
-    typeof item.estimated_win_rate === "number" ? ` / ${Math.round(item.estimated_win_rate * 100)}%` : "";
-  return `${item.jtitle || ""} (${item.count || 0}${rate})`;
+  return `${item.jtitle || ""} (${item.count || 0})`;
+}
+
+function lawyerFitReason(lawyer) {
+  const reason = String(lawyer.reason_zh || "");
+  if (reason && !/(勝訴|敗訴|估算|勝率|加權|可解析)/.test(reason)) return reason;
+  const titles = (lawyer.matched_jtitles || [])
+    .slice(0, 3)
+    .map((item) => item.jtitle)
+    .filter(Boolean);
+  return `符合原因：曾出現在相關公開判決中${titles.length ? `，案由包含 ${titles.map((title) => `「${title}」`).join("、")}` : ""}，可作為此類案件的諮詢名單候選。`;
 }
 
 function modeLabel(payload) {
